@@ -1,0 +1,105 @@
+#include <windows.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+
+typedef void (*StartMonitoringFunc)();
+typedef void (*StopMonitoringFunc)();
+typedef bool (*GetStatusFunc)();
+
+HINSTANCE hLib = NULL;
+StartMonitoringFunc StartMonitoring = nullptr;
+StopMonitoringFunc StopMonitoring = nullptr;
+GetStatusFunc GetStatus = nullptr;
+
+bool monitoringActive = false;
+std::ofstream logFile;
+
+// Функции для управления логированием
+void LoadDLL() {
+    hLib = LoadLibrary(L"MonitoringDLL.dll");
+    if (hLib) {
+        StartMonitoring = (StartMonitoringFunc)GetProcAddress(hLib, "StartMonitoring");
+        StopMonitoring = (StopMonitoringFunc)GetProcAddress(hLib, "StopMonitoring");
+        GetStatus = (GetStatusFunc)GetProcAddress(hLib, "GetStatus");
+    }
+}
+
+void UnloadDLL() {
+    if (hLib) {
+        FreeLibrary(hLib);
+        hLib = NULL;
+    }
+}
+
+void ShowMenu() {
+    std::cout << "Статус: " << (GetStatus() ? "ВКЛЮЧЕН" : "ВЫКЛЮЧЕН") << std::endl;
+    std::cout << "Команды:\n";
+    std::cout << "1 - Включить мониторинг\n";
+    std::cout << "2 - Выключить мониторинг\n";
+    std::cout << "3 - Показать лог\n";
+    std::cout << "4 - Выход\n";
+    std::cout << "Выбор: ";
+}
+
+void ShowLog() {
+    logFile.open("log.txt", std::ios::in);
+    if (logFile.is_open()) {
+        std::string line;
+        while (std::getline(logFile, line))
+            std::cout << line << std::endl;
+        logFile.close();
+    } else {
+        std::cout << "Лог файл не найден." << std::endl;
+    }
+}
+
+void LogEvent(const std::string& event) {
+    logFile.open("log.txt", std::ios::app);
+    if (logFile.is_open()) {
+        logFile << "[" << __TIME__ << "] " << event << std::endl;
+        logFile.close();
+    }
+}
+
+int main() {
+    LoadDLL();
+    if (!hLib) {
+        std::cout << "Не удалось загрузить DLL." << std::endl;
+        return 1;
+    }
+
+    int choice;
+    do {
+        ShowMenu();
+        std::cin >> choice;
+        switch (choice) {
+        case 1:
+            if (!GetStatus() && StartMonitoring) {
+                StartMonitoring();
+                std::cout << "Мониторинг включен." << std::endl;
+            } else {
+                std::cout << "Мониторинг уже включен." << std::endl;
+            }
+            break;
+        case 2:
+            if (GetStatus() && StopMonitoring) {
+                StopMonitoring();
+                std::cout << "Мониторинг выключен." << std::endl;
+            } else {
+                std::cout << "Мониторинг уже выключен." << std::endl;
+            }
+            break;
+        case 3:
+            ShowLog();
+            break;
+        case 4:
+            break;
+        default:
+            std::cout << "Некорректный выбор." << std::endl;
+        }
+    } while (choice != 4);
+
+    UnloadDLL();
+    return 0;
+}
