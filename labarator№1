@@ -1,0 +1,323 @@
+import json
+from datetime import datetime
+from typing import List, Optional
+
+# Исключение для случаев, когда курс полон
+class CourseFullError(Exception):
+    pass
+
+# Основной класс курса
+class Course:
+    def __init__(
+        self,
+        title: str,
+        instructor: str,
+        start_date: str,
+        end_date: str,
+        max_students: int
+    ) -> None:
+        # Инициализация основных атрибутов курса
+        self.__title = title
+        self.__instructor = instructor
+        self.__start_date = start_date
+        self.__end_date = end_date
+        self.__max_students = max_students
+        # Список студентов, записанных на курс
+        self.__students: List[str] = []
+
+    # Свойство для получения названия курса
+    @property
+    def title(self) -> str:
+        return self.__title
+
+    # Свойство для получения преподавателя
+    @property
+    def instructor(self) -> str:
+        return self.__instructor
+
+    # Свойство для получения даты начала курса
+    @property
+    def start_date(self) -> str:
+        return self.__start_date
+
+    # Свойство для получения даты окончания курса
+    @property
+    def end_date(self) -> str:
+        return self.__end_date
+
+    # Свойство для получения максимально допустимого количества студентов
+    @property
+    def max_students(self) -> int:
+        return self.__max_students
+
+    # Свойство для получения списка студентов
+    @property
+    def students(self) -> List[str]:
+        return self.__students
+
+    # Метод добавления студента в курс
+    def add_student(self, name: str) -> None:
+        # Проверка, что курс не переполнен
+        if len(self.__students) >= self.__max_students:
+            raise CourseFullError(f"Course '{self.__title}' is full.")
+        self.__students.append(name)
+
+    # Метод расчета процента исполнения курса
+    def completion_rate(self) -> float:
+        if self.__max_students == 0:
+            return 0.0
+        return (len(self.__students) / self.__max_students) * 100
+
+    # Метод вычисления продолжительности курса в днях
+    def duration_days(self) -> int:
+        try:
+            start = datetime.strptime(self.__start_date, "%Y-%m-%d")
+            end = datetime.strptime(self.__end_date, "%Y-%m-%d")
+            return (end - start).days
+        except ValueError as e:
+            raise ValueError("Invalid date format. Use 'YYYY-MM-DD'.") from e
+
+    # Метод представления курса в строковом формате
+    def __str__(self) -> str:
+        return (
+            f"Course: {self.__title}\n"
+            f"Instructor: {self.__instructor}\n"
+            f"Dates: {self.__start_date} - {self.__end_date} ({self.duration_days()} days)\n"
+            f"Students: {len(self.__students)}/{self.__max_students}"
+        )
+
+    # Метод преобразования объекта курса в словарь для сохранения в JSON
+    def to_dict(self) -> dict:
+        return {
+            "type": self.__class__.__name__,  # Тип курса (для восстановления)
+            "title": self.__title,
+            "instructor": self.__instructor,
+            "start_date": self.__start_date,
+            "end_date": self.__end_date,
+            "max_students": self.__max_students,
+            "students": self.__students,
+        }
+
+    # Метод восстановления объекта курса из словаря
+    @classmethod
+    def from_dict(cls, data: dict) -> "Course":
+        course_type = data.get("type")
+        # В зависимости от типа создается соответствующий подкласс
+        if course_type == "ProgrammingCourse":
+            course = ProgrammingCourse(
+                title=data["title"],
+                instructor=data["instructor"],
+                start_date=data["start_date"],
+                end_date=data["end_date"],
+                max_students=data["max_students"],
+                language=data.get("language", "")
+            )
+        elif course_type == "DesignCourse":
+            course = DesignCourse(
+                title=data["title"],
+                instructor=data["instructor"],
+                start_date=data["start_date"],
+                end_date=data["end_date"],
+                max_students=data["max_students"],
+                software=data.get("software", "")
+            )
+        elif course_type == "ScienceCourse":
+            course = ScienceCourse(
+                title=data["title"],
+                instructor=data["instructor"],
+                start_date=data["start_date"],
+                end_date=data["end_date"],
+                max_students=data["max_students"],
+                field=data.get("field", "")
+            )
+        else:
+            # В случае обычного курса без подкласса
+            course = Course(
+                title=data["title"],
+                instructor=data["instructor"],
+                start_date=data["start_date"],
+                end_date=data["end_date"],
+                max_students=data["max_students"]
+            )
+        # Восстановление студентского списка
+        course._Course__students = data.get("students", [])
+        return course
+
+# Подкласс для курсов программирования
+class ProgrammingCourse(Course):
+    def __init__(
+        self,
+        title: str,
+        instructor: str,
+        start_date: str,
+        end_date: str,
+        max_students: int,
+        language: str
+    ) -> None:
+        super().__init__(title, instructor, start_date, end_date, max_students)
+        self.__language = language  # Язык программирования
+
+    @property
+    def language(self) -> str:
+        return self.__language
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        return f"{base}\nProgramming language: {self.__language}"
+
+# Подкласс для курсов дизайна
+class DesignCourse(Course):
+    def __init__(
+        self,
+        title: str,
+        instructor: str,
+        start_date: str,
+        end_date: str,
+        max_students: int,
+        software: str
+    ) -> None:
+        super().__init__(title, instructor, start_date, end_date, max_students)
+        self.__software = software  # Используемое программное обеспечение
+
+    @property
+    def software(self) -> str:
+        return self.__software
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        return f"{base}\nSoftware: {self.__software}"
+
+# Подкласс для научных курсов
+class ScienceCourse(Course):
+    def __init__(
+        self,
+        title: str,
+        instructor: str,
+        start_date: str,
+        end_date: str,
+        max_students: int,
+        field: str
+    ) -> None:
+        super().__init__(title, instructor, start_date, end_date, max_students)
+        self.__field = field  # Научная область
+
+    @property
+    def field(self) -> str:
+        return self.__field
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        return f"{base}\nScientific field: {self.__field}"
+
+# Класс платформы обучения
+class Platform:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.__courses: List[Course] = []
+
+    # Метод добавления курса
+    def add_course(self, course: Course) -> None:
+        self.__courses.append(course)
+
+    # Метод удаления курса по названию
+    def remove_course(self, title: str) -> bool:
+        for i, course in enumerate(self.__courses):
+            if course.title == title:
+                del self.__courses[i]
+                return True
+        return False
+
+    # Метод поиска курса по названию
+    def find_course(self, title: str) -> Optional[Course]:
+        for course in self.__courses:
+            if course.title == title:
+                return course
+        return None
+
+    # Получение списка всех курсов
+    def get_all_courses(self) -> List[Course]:
+        return self.__courses.copy()
+
+    # Получение наиболее популярных курсов по количеству студентов
+    def get_most_popular(self, n: int = 3) -> List[Course]:
+        return sorted(self.__courses, key=lambda c: len(c.students), reverse=True)[:n]
+
+    # Сохранение курсов в JSON файл
+    def save_to_json(self, filename: str) -> None:
+        data = [course.to_dict() for course in self.__courses]
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    # Загрузка курсов из JSON файла
+    def load_from_json(self, filename: str) -> None:
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            self.__courses = [Course.from_dict(item) for item in data]
+        except FileNotFoundError:
+            print(f"File {filename} не найден.")
+        except json.JSONDecodeError:
+            print(f"Ошибка чтения JSON из {filename}.")
+
+    def __str__(self) -> str:
+        return f"Platform: {self.name}, courses: {len(self.__courses)}"
+
+
+
+
+
+# Создание и управление образовательными курсами
+
+from course_platform import ProgrammingCourse, DesignCourse, Platform
+
+# Создание курсов
+python_course = ProgrammingCourse(
+    title="Python для начинающих",             # Название курса
+    instructor="Ivanov I.I.",                  # Преподаватель
+    start_date="2025-01-10",                   # Дата начала
+    end_date="2025-04-10",                     # Дата окончания
+    max_students=30,                           # Максимальное количество студентов
+    language="Python"                          # Язык программирования
+)
+
+design_course = DesignCourse(
+    title="UI/UX дизайн",                       # Название курса
+    instructor="Petrova A.S.",                 # Преподаватель
+    start_date="2025-02-01",                   # Дата начала
+    end_date="2025-05-01",                     # Дата окончания
+    max_students=25,                           # Максимальное количество студентов
+    software="Figma"                           # Используемое программное обеспечение
+)
+
+# Добавление студентов в курс Python
+python_course.add_student("Sidorov Petr")              
+python_course.add_student("Kozlova Anna")
+for i in range(10):
+    python_course.add_student(f"Student {i+1}")      # Добавляем 10 студентов с именами Student 1, Student 2 и т.д.
+
+# Добавление студентов в курс дизайна
+for i in range(15):
+    design_course.add_student(f"Designer {i+1}")      # Добавляем 15 студентов с именами Designer 1, Designer 2 и т.д.
+
+# Создание платформы
+platform = Platform("SuperLearn")                    # Название платформы
+platform.add_course(python_course)                     # Добавление курса Python
+platform.add_course(design_course)                     # Добавление курса дизайна
+
+# Вывод наиболее популярных курсов
+print("Наиболее популярные курсы:")
+for course in platform.get_most_popular(2):
+    print(course)
+    print(f"Процент завершения: {course.completion_rate():.1f}%")  # Процент студентов, завершивших курс
+    print("-" * 40)
+
+# Сохранение данных платформы в JSON файл
+platform.save_to_json("platform_data.json")
+
+# Загрузка данных из JSON в новую платформу
+new_platform = Platform("NewSuperLearn")
+new_platform.load_from_json("platform_data.json")
+print("\nЗагружено из JSON:")
+for course in new_platform.get_all_courses():
+    print(course)
+    print("-" * 40)
